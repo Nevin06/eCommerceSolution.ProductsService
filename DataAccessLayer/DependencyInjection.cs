@@ -12,10 +12,16 @@ public static class DependencyInjection
     public static IServiceCollection AddDataAccessLayer(this IServiceCollection services, IConfiguration configuration)
     {
         // TODO: Register your data access services here into the IoC container
+        // 69
+        string connectionStringTemplate = configuration.GetConnectionString("DefaultConnection")!;
+        string connectionString = connectionStringTemplate
+            .Replace("$MYSQL_HOST", Environment.GetEnvironmentVariable("MYSQL_HOST"))
+            .Replace("$MYSQL_PASSWORD", Environment.GetEnvironmentVariable("MYSQL_PASSWORD"));
+
         // 36
         services.AddDbContext<ApplicationDbContext>(options =>
         {
-            options.UseMySQL(configuration.GetConnectionString("DefaultConnection")!);
+            options.UseMySQL(connectionString);
         });
         services.AddScoped<IProductsRepository, ProductsRepository>(); //37
         return services;
