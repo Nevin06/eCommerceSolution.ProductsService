@@ -61,9 +61,18 @@ public class ProductsService : IProductsService
             if (isDeleted) 
             { 
                 _logger.LogInformation("Entered DeleteProductAsync RabbitMQ block");
-                string routingKey = "product.delete";
+                //string routingKey = "product.delete";
                 var message = new ProductDeleteMessage(ProductID, existingProduct.ProductName);
-                await _rabbitMQPublisher.Publish(routingKey, message);
+                //await _rabbitMQPublisher.Publish(routingKey, message);
+
+                //167
+                var headers = new Dictionary<string, object>
+                {
+                    { "eventType", "product.delete" },
+                    { "RowCount", 1 }
+                    //{ "timestamp", DateTime.UtcNow }
+                };
+                await _rabbitMQPublisher.Publish(headers, message); //167
             }
             return isDeleted;
         }
@@ -141,7 +150,17 @@ public class ProductsService : IProductsService
                 string routingKey = "product.update.name";
                 var message = new ProductNameUpdateMessage(product.ProductID,
                     product.ProductName);
-                await _rabbitMQPublisher.Publish(routingKey,message);
+                //await _rabbitMQPublisher.Publish(routingKey,message);
+
+                //167
+                var headers = new Dictionary<string, object>
+                {
+                    { "eventType", "product.update" },
+                    { "field", "name" },
+                    {"RowCount", 1 }
+                    //{ "timestamp", DateTime.UtcNow }
+                };
+                await _rabbitMQPublisher.Publish(headers, message); //167
             } //160
 
             return _mapper.Map<ProductResponse>(updatedProduct);

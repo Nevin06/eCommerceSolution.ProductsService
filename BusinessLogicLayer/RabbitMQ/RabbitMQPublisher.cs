@@ -23,11 +23,13 @@ namespace BusinessLogicLayer.RabbitMQ
             _connection?.Dispose();
         }
 
-        public async Task Publish<T>(string routingKey, T message)
+        //public async Task Publish<T>(string routingKey, T message)
+        public async Task Publish<T>(Dictionary<string,object> headers, T message) //167
+
         {
             try
             {
-                _logger.LogInformation("RabbitMQPublisher.Publish START, routingKey={routingKey}", routingKey);
+                //_logger.LogInformation("RabbitMQPublisher.Publish START, routingKey={routingKey}", routingKey);
                 string hostName = _configuration["RABBITMQ_HOST"]!;
                 string userName = _configuration["RABBITMQ_USERNAME"]!;
                 string password = _configuration["RABBITMQ_PASSWORD"]!;
@@ -54,17 +56,18 @@ namespace BusinessLogicLayer.RabbitMQ
                 
                 _logger.LogInformation("Declaring exchange {exchange}", exchangeName);
                 // If the exchange already exists, this will do nothing. If it doesn't exist, it will be created.
-                await _channel.ExchangeDeclareAsync(exchange: exchangeName, type: ExchangeType.Topic, durable: true); //159 //165 //166
-                _logger.LogInformation("Published message to {exchange} / {routingKey}", exchangeName, routingKey);
+                await _channel.ExchangeDeclareAsync(exchange: exchangeName, type: ExchangeType.Headers, durable: true); //159 //165 //166 //167
+                _logger.LogInformation("Published message to {exchange} / {routingKey}", exchangeName, string.Empty); //167
 
                 var props = new BasicProperties();
                 props.ContentType = "application/json";
                 props.DeliveryMode = DeliveryModes.Persistent; // make it durable
                                                                // set props if needed
+                                                               props.Headers = headers; //167
                 // Publish the message to the exchange with the specified routing key
                 await _channel.BasicPublishAsync(
                     exchange: exchangeName,
-                    routingKey: routingKey, //166
+                    routingKey: string.Empty, //166 //167 - routing key is ignored for headers exchange
                     mandatory: true,
                     basicProperties: props,
                     body: messageBodyInBytes); //159
