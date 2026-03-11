@@ -2,6 +2,7 @@
 //38
 public enum CategoryOptions
 {
+    Unknown,
     Electronics,
     HomeAppliances,
     Furniture,

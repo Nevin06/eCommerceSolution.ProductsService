@@ -1,9 +1,12 @@
 ﻿using AutoMapper;
 using BusinessLogicLayer.DTOs;
+using BusinessLogicLayer.RabbitMQ;
 using BusinessLogicLayer.ServiceContracts;
 using DataAccessLayer.Entities;
 using DataAccessLayer.RepositoryContracts;
+using eCommerce.OrdersMicroService.BusinessLogicLayer.RabbitMQ;
 using FluentValidation;
+using Microsoft.Extensions.Logging;
 using System.ComponentModel.DataAnnotations;
 using System.Linq.Expressions;
 
@@ -15,13 +18,17 @@ public class ProductsService : IProductsService
     private readonly IMapper _mapper;
     private readonly IValidator<ProductAddRequest> _productAddRequestValidator;
     private readonly IValidator<ProductUpdateRequest> _productUpdateRequestValidator;
+    private readonly IRabbitMQPublisher _rabbitMQPublisher;
+    private readonly ILogger<ProductsService> _logger;
     public ProductsService(IProductsRepository productsRepository, IMapper mapper, IValidator<ProductAddRequest> productAddRequestValidator,
-        IValidator<ProductUpdateRequest> productUpdateRequestValidator)
+        IValidator<ProductUpdateRequest> productUpdateRequestValidator, IRabbitMQPublisher rabbitMQPublisher, ILogger<ProductsService> logger)
     {
         _productsRepository = productsRepository;
         _mapper = mapper;
         _productAddRequestValidator = productAddRequestValidator;
         _productUpdateRequestValidator = productUpdateRequestValidator;
+        _rabbitMQPublisher = rabbitMQPublisher;
+        _logger = logger;
     }
     public async Task<ProductResponse> AddProductAsync(ProductAddRequest productAddRequest)
     {
@@ -47,7 +54,18 @@ public class ProductsService : IProductsService
         Product? existingProduct = await _productsRepository.GetProductByConditionAsync(product => product.ProductID == ProductID);
         if (existingProduct != null)
         {
-            return await _productsRepository.DeleteProductAsync(ProductID);
+            //164
+            //Publish message to RabbitMQ after deleting the product
+            //return await _productsRepository.DeleteProductAsync(ProductID);
+            bool isDeleted = await _productsRepository.DeleteProductAsync(ProductID);
+            if (isDeleted) 
+            { 
+                _logger.LogInformation("Entered DeleteProductAsync RabbitMQ block");
+                string routingKey = "product.delete";
+                var message = new ProductDeleteMessage(ProductID, existingProduct.ProductName);
+                await _rabbitMQPublisher.Publish(routingKey, message);
+            }
+            return isDeleted;
         }
         else
         {
@@ -99,7 +117,6 @@ public class ProductsService : IProductsService
         }
         else if (existingProduct != null)
         {
-
             // Validation
             var validationResult = await _productUpdateRequestValidator.ValidateAsync(productUpdateRequest);
             if (!validationResult.IsValid)
@@ -109,7 +126,24 @@ public class ProductsService : IProductsService
             }
 
             Product product = _mapper.Map<Product>(productUpdateRequest);
+
+            //160
+            bool isProductNameChanged = existingProduct.ProductName != product.ProductName;
+
             Product? updatedProduct = await _productsRepository.UpdateProductAsync(product);
+
+            //160
+            //Check if product name is updated, if yes then publish message to RabbitMQ
+            if (existingProduct.ProductName == product.ProductName)
+            {
+                _logger.LogInformation("Entered UpdateProductAsync RabbitMQ block");
+                //string message = $"Product with ID {product.ProductID} has been updated. Old Name: {existingProduct.ProductName}, New Name: {product.ProductName}";
+                string routingKey = "product.update.name";
+                var message = new ProductNameUpdateMessage(product.ProductID,
+                    product.ProductName);
+                await _rabbitMQPublisher.Publish(routingKey,message);
+            } //160
+
             return _mapper.Map<ProductResponse>(updatedProduct);
         }
         else
