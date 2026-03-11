@@ -54,7 +54,7 @@ namespace BusinessLogicLayer.RabbitMQ
                 
                 _logger.LogInformation("Declaring exchange {exchange}", exchangeName);
                 // If the exchange already exists, this will do nothing. If it doesn't exist, it will be created.
-                await _channel.ExchangeDeclareAsync(exchange: exchangeName, type: ExchangeType.Fanout, durable: true); //159 //165
+                await _channel.ExchangeDeclareAsync(exchange: exchangeName, type: ExchangeType.Topic, durable: true); //159 //165 //166
                 _logger.LogInformation("Published message to {exchange} / {routingKey}", exchangeName, routingKey);
 
                 var props = new BasicProperties();
@@ -64,7 +64,7 @@ namespace BusinessLogicLayer.RabbitMQ
                 // Publish the message to the exchange with the specified routing key
                 await _channel.BasicPublishAsync(
                     exchange: exchangeName,
-                    routingKey: string.Empty, //165
+                    routingKey: routingKey, //166
                     mandatory: true,
                     basicProperties: props,
                     body: messageBodyInBytes); //159
