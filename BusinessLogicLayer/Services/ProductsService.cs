@@ -137,15 +137,15 @@ public class ProductsService : IProductsService
             Product product = _mapper.Map<Product>(productUpdateRequest);
 
             //160
-            bool isProductNameChanged = existingProduct.ProductName != product.ProductName;
+            //bool isProductNameChanged = existingProduct.ProductName != product.ProductName; //168
 
             Product? updatedProduct = await _productsRepository.UpdateProductAsync(product);
 
             //160
             //Check if product name is updated, if yes then publish message to RabbitMQ
-            if (existingProduct.ProductName == product.ProductName)
-            {
-                _logger.LogInformation("Entered UpdateProductAsync RabbitMQ block");
+            //if (existingProduct.ProductName == product.ProductName)
+            //{ //168 - we want to publish update message even if name is not changed, because other fields might have been updated
+            _logger.LogInformation("Entered UpdateProductAsync RabbitMQ block");
                 //string message = $"Product with ID {product.ProductID} has been updated. Old Name: {existingProduct.ProductName}, New Name: {product.ProductName}";
                 string routingKey = "product.update.name";
                 var message = new ProductNameUpdateMessage(product.ProductID,
@@ -156,12 +156,14 @@ public class ProductsService : IProductsService
                 var headers = new Dictionary<string, object>
                 {
                     { "eventType", "product.update" },
-                    { "field", "name" },
+                    //{ "field", "name" },
                     {"RowCount", 1 }
                     //{ "timestamp", DateTime.UtcNow }
                 };
-                await _rabbitMQPublisher.Publish(headers, message); //167
-            } //160
+            //await _rabbitMQPublisher.Publish(headers, message); //167
+            await _rabbitMQPublisher.Publish(headers, product); //168
+
+            //} //160 //168
 
             return _mapper.Map<ProductResponse>(updatedProduct);
         }
